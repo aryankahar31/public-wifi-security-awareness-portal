@@ -1,9 +1,6 @@
-
-import { getFullDataSet } from './dataService';
 import type { ProcessedSurveyResponse } from '../types';
 
-export const generateCsv = () => {
-    const data = getFullDataSet();
+export const generateCsv = (data: ProcessedSurveyResponse[]) => {
     if (data.length === 0) {
         alert("No data to export.");
         return;

@@ -105,6 +105,31 @@
 .scrollbar-hide::-webkit-scrollbar {
   height: 8px; /* required but hidden via masking */
 }
+/* background container */
+#glitch-container {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -10; /* keeps animation behind UI content */
+  overflow: hidden;
+}
+
+/* canvas that draws animation */
+#glitch-background {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* vignette gradient */
+#outer-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle, transparent 60%, black 100%);
+  opacity: 0.5;
+}
 
     </style>
   <script type="importmap">

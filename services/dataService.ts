@@ -1,4 +1,3 @@
-
 import { RAW_DATA } from './surveyData';
 import type { RawSurveyResponse, SurveyResponse, ProcessedSurveyResponse, AnalysisData, ChartData } from '../types';
 
@@ -65,8 +64,6 @@ const mapAndCleanData = (rawData: RawSurveyResponse[]): SurveyResponse[] => {
   });
 };
 
-const rawSurveyData = mapAndCleanData(RAW_DATA);
-
 const processData = (data: SurveyResponse[]): ProcessedSurveyResponse[] => {
   return data.map(response => ({
     "What is your age group?": response["What is your age group?"],
@@ -84,14 +81,16 @@ const processData = (data: SurveyResponse[]): ProcessedSurveyResponse[] => {
   }));
 };
 
-const fullDataSet = processData(rawSurveyData);
-
-export const getFullDataSet = (): ProcessedSurveyResponse[] => {
-  return fullDataSet;
+// This function is called once to load the initial dataset.
+export const getInitialDataSet = (): ProcessedSurveyResponse[] => {
+  const rawSurveyData = mapAndCleanData(RAW_DATA);
+  return processData(rawSurveyData);
 };
 
-export const getSummaryStatistics = () => {
-  const total = fullDataSet.length;
+
+// These functions now accept data as a parameter to work with the live state.
+export const getSummaryStatistics = (dataSet: ProcessedSurveyResponse[]) => {
+  const total = dataSet.length;
   if (total === 0) {
     return {
       total_responses: 0,
@@ -103,11 +102,11 @@ export const getSummaryStatistics = () => {
     };
   }
   
-  const vpnUsers = fullDataSet.filter(r => r.uses_vpn === 'Always').length;
-  const highAwareness = fullDataSet.filter(r => r.awareness_level === 'High').length;
-  const threatEncounter = fullDataSet.filter(r => r.encountered_threat === 'Yes').length;
-  const dailyUsers = fullDataSet.filter(r => r['How often do you use public wifi?'] === 'Daily').length;
-  const willingToPay = fullDataSet.filter(r => r.willing_to_pay === 'Yes').length;
+  const vpnUsers = dataSet.filter(r => r.uses_vpn === 'Always').length;
+  const highAwareness = dataSet.filter(r => r.awareness_level === 'High').length;
+  const threatEncounter = dataSet.filter(r => r.encountered_threat === 'Yes').length;
+  const dailyUsers = dataSet.filter(r => r['How often do you use public wifi?'] === 'Daily').length;
+  const willingToPay = dataSet.filter(r => r.willing_to_pay === 'Yes').length;
 
   return {
     total_responses: total,
@@ -123,7 +122,7 @@ const getCounts = (data: ProcessedSurveyResponse[], key: keyof ProcessedSurveyRe
   const counts: { [key: string]: number } = {};
   data.forEach(item => {
     const value = item[key];
-    if (value) { // Ensure value is not null or undefined
+    if (value) {
       counts[value] = (counts[value] || 0) + 1;
     }
   });
@@ -134,14 +133,14 @@ const getCounts = (data: ProcessedSurveyResponse[], key: keyof ProcessedSurveyRe
   return { labels, data: chartData };
 };
 
-export const getAnalysisData = (): AnalysisData => {
+export const getAnalysisData = (dataSet: ProcessedSurveyResponse[]): AnalysisData => {
   return {
-    awareness: getCounts(fullDataSet, 'awareness_level'),
-    vpn_usage: getCounts(fullDataSet, 'uses_vpn'),
-    trust_levels: getCounts(fullDataSet, 'trusts_public_wifi'),
-    age_groups: getCounts(fullDataSet, 'What is your age group?'),
-    wifi_frequency: getCounts(fullDataSet, 'How often do you use public wifi?'),
-    threat_encounters: getCounts(fullDataSet, 'encountered_threat'),
-    occupations: getCounts(fullDataSet, 'What is your occupation?'),
+    awareness: getCounts(dataSet, 'awareness_level'),
+    vpn_usage: getCounts(dataSet, 'uses_vpn'),
+    trust_levels: getCounts(dataSet, 'trusts_public_wifi'),
+    age_groups: getCounts(dataSet, 'What is your age group?'),
+    wifi_frequency: getCounts(dataSet, 'How often do you use public wifi?'),
+    threat_encounters: getCounts(dataSet, 'encountered_threat'),
+    occupations: getCounts(dataSet, 'What is your occupation?'),
   };
 };

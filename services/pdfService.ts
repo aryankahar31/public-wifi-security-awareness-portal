@@ -1,10 +1,8 @@
-
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import { getFullDataSet } from './dataService';
+import type { ProcessedSurveyResponse } from '../types';
 
-export const generatePdfReport = () => {
-    const data = getFullDataSet();
+export const generatePdfReport = (data: ProcessedSurveyResponse[]) => {
     if (data.length === 0) {
         alert("No data available to generate a report.");
         return;

@@ -1,6 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts';
-import type { ProcessedSurveyResponse } from '../types';
+import {
+  PieChart, Pie, Cell, BarChart, Bar, LineChart, Line,
+  AreaChart, Area, XAxis, YAxis, Tooltip, Legend,
+  ResponsiveContainer, CartesianGrid
+} from 'recharts';
+
 import { CustomChartTooltip } from '../components/CustomChartTooltip';
 import useTheme from '../hooks/useTheme';
 import { BarChart3, PieChart as PieIcon, LineChart as LineIcon, AreaChart as AreaIcon } from 'lucide-react';
@@ -8,163 +12,194 @@ import { useData } from '../contexts/DataContext';
 import AnimatedPage from '../components/AnimatedPage';
 
 type ChartType = 'bar' | 'pie' | 'line' | 'area';
+
 const COLORS = ['#61dca3', '#61b3dc', '#b361dc', '#dca361', '#dc6161', '#a361dc', '#dc61b3'];
 
-const DIMENSIONS: { label: string; key: keyof ProcessedSurveyResponse }[] = [
-    { label: 'Occupation', key: 'What is your occupation?' },
-    { label: 'Age Group', key: 'What is your age group?' },
-    { label: 'Usage Frequency', key: 'How often do you use public wifi?' },
-    { label: 'Connection Location', key: 'Where do you most often connect to public wifi?' },
-    { label: 'Activities Performed', key: 'What activities do you usually perform on public wifi?' },
-    { label: 'Risk Awareness', key: 'awareness_level' },
-    { label: 'VPN Usage', key: 'uses_vpn' },
-    { label: 'Threats Encountered', key: 'encountered_threat' },
-    { label: 'Feeling of Security', key: 'trusts_public_wifi' },
-    { label: 'Willingness to Pay', key: 'willing_to_pay' },
-    { label: 'Reads Terms', key: 'reads_terms' },
-    { label: 'Responsibility', key: 'responsibility' },
+// ✅ Mapping Supabase DB fields to UI labels
+const DIMENSIONS = [
+  { label: 'Occupation', key: 'occupation' },
+  { label: 'Age Group', key: 'age_group' },
+  { label: 'WiFi Usage Frequency', key: 'wifi_frequency' },
+  { label: 'Connection Location', key: 'connection_location' },
+  { label: 'Activities Performed', key: 'activities' },
+  { label: 'Risk Awareness', key: 'awareness_risk' },
+  { label: 'Security Measures (VPN)', key: 'security_measures' },
+  { label: 'Threats Encountered', key: 'security_issues' },
+  { label: 'Feeling of Security', key: 'security_feeling' },
+  { label: 'Reads Terms & Conditions', key: 'reads_terms' },
+  { label: 'Responsibility', key: 'responsibility' },
+  { label: 'Willingness to Pay', key: 'pay_for_wifi' },
 ];
 
 const DetailedAnalysis: React.FC = () => {
-    const { theme } = useTheme();
-    const tickColor = theme === 'dark' ? '#aab2bb' : '#475569';
-    const { surveyData } = useData();
-    const fullDataSet = useMemo(() => surveyData, [surveyData]);
+  const { theme } = useTheme();
+  const tickColor = theme === 'dark' ? '#aab2bb' : '#475569';
 
-    const [primaryDimension, setPrimaryDimension] = useState<keyof ProcessedSurveyResponse>(DIMENSIONS[0].key);
-    const [chartType, setChartType] = useState<ChartType>('bar');
-    const [filterDimension, setFilterDimension] = useState<string>('none');
-    const [filterValue, setFilterValue] = useState<string>('none');
+  const { surveyData } = useData(); // ✅ Live Supabase dataset
 
-    const filterOptions = useMemo(() => {
-        if (filterDimension === 'none') return [];
-        const uniqueValues = new Set(fullDataSet.map(item => item[filterDimension as keyof ProcessedSurveyResponse]));
-        return Array.from(uniqueValues);
-    }, [filterDimension, fullDataSet]);
+  const [primaryDimension, setPrimaryDimension] = useState<string>(DIMENSIONS[0].key);
+  const [chartType, setChartType] = useState<ChartType>('bar');
+  const [filterDimension, setFilterDimension] = useState<string>('none');
+  const [filterValue, setFilterValue] = useState<string>('none');
 
-    const chartData = useMemo(() => {
-        let filteredData = fullDataSet;
-        if (filterDimension !== 'none' && filterValue !== 'none') {
-            filteredData = fullDataSet.filter(item => item[filterDimension as keyof ProcessedSurveyResponse] === filterValue);
-        }
+  const filterOptions = useMemo(() => {
+    if (filterDimension === 'none') return [];
+    const uniqueValues = new Set(surveyData.map((item) => item[filterDimension as keyof typeof item]));
+    return Array.from(uniqueValues);
+  }, [filterDimension, surveyData]);
 
-        const counts: { [key: string]: number } = {};
-        filteredData.forEach(item => {
-            const value = item[primaryDimension] as string;
-            counts[value] = (counts[value] || 0) + 1;
-        });
+  // ✅ Build dataset for chart
+  const chartData = useMemo(() => {
+    let filteredData = surveyData;
+    if (filterDimension !== 'none' && filterValue !== 'none') {
+      filteredData = surveyData.filter((item) => item[filterDimension as keyof typeof item] === filterValue);
+    }
 
-        return Object.entries(counts).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
-    }, [primaryDimension, filterDimension, filterValue, fullDataSet]);
-    
-    const total = chartData.reduce((sum, entry) => sum + entry.value, 0);
+    const counts: Record<string, number> = {};
+    filteredData.forEach((item) => {
+      const value = item[primaryDimension as keyof typeof item] as string;
+      counts[value] = (counts[value] || 0) + 1;
+    });
 
-    const renderChart = () => {
-        if (chartData.length === 0) {
-            return <div className="flex items-center justify-center h-full text-text-secondary-light dark:text-text-secondary-dark">No data matches your criteria.</div>;
-        }
+    return Object.entries(counts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  }, [primaryDimension, filterDimension, filterValue, surveyData]);
 
-        switch (chartType) {
-            case 'pie':
-                return (
-                    <PieChart>
-                        <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={{ fill: tickColor, fontSize: 12 }}>
-                            {chartData.map((_entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                        </Pie>
-                        <Tooltip content={<CustomChartTooltip total={total} />} />
-                        <Legend wrapperStyle={{ color: tickColor, fontSize: 12 }} />
-                    </PieChart>
-                );
-            case 'line':
-                 return (
-                    <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 50 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#30363d' : '#cbd5e1'} />
-                        <XAxis dataKey="name" stroke={tickColor} angle={-45} textAnchor="end" interval={0} height={80} tick={{ fontSize: 10 }}/>
-                        <YAxis stroke={tickColor} />
-                        <Tooltip content={<CustomChartTooltip total={total} />} />
-                        <Legend wrapperStyle={{ color: tickColor }}/>
-                        <Line type="monotone" dataKey="value" stroke="#61dca3" strokeWidth={2} />
-                    </LineChart>
-                );
-            case 'area':
-                 return (
-                    <AreaChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 50 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#30363d' : '#cbd5e1'} />
-                        <XAxis dataKey="name" stroke={tickColor} angle={-45} textAnchor="end" interval={0} height={80} tick={{ fontSize: 10 }}/>
-                        <YAxis stroke={tickColor} />
-                        <Tooltip content={<CustomChartTooltip total={total} />} />
-                        <Legend wrapperStyle={{ color: tickColor }}/>
-                        <Area type="monotone" dataKey="value" stroke="#61dca3" fill="#61dca3" fillOpacity={0.3} />
-                    </AreaChart>
-                );
-            case 'bar':
-            default:
-                return (
-                    <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 100, bottom: 5 }}>
-                        <XAxis type="number" stroke={tickColor} />
-                        <YAxis type="category" dataKey="name" width={120} stroke={tickColor} interval={0} tick={{ fontSize: 12 }} />
-                        <Tooltip content={<CustomChartTooltip total={total} />} cursor={{ fill: 'rgba(97, 179, 220, 0.1)' }} />
-                        <Bar dataKey="value">
-                            {chartData.map((_entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                        </Bar>
-                    </BarChart>
-                );
-        }
-    };
-    
-    const inputClasses = "w-full bg-input-light dark:bg-input-dark border border-border-light dark:border-border-dark rounded-md p-2 focus:ring-2 focus:ring-primary focus:outline-none transition-all text-sm";
-    const buttonClasses = (active: boolean) => `p-2 rounded-md transition-colors ${active ? 'bg-primary text-black' : 'bg-input-light dark:bg-input-dark hover:bg-border-light dark:hover:bg-border-dark'}`;
+  const total = chartData.reduce((sum, entry) => sum + entry.value, 0);
 
-    return (
-        <AnimatedPage>
-            <div className="text-center mb-12">
-                <h1 className="text-4xl md:text-6xl font-bold text-text-primary-light dark:text-white">Detailed Analysis Tool</h1>
-                <p className="text-lg text-text-secondary-light dark:text-text-secondary-dark mt-4 max-w-3xl mx-auto">
-                    Interactively explore the survey data. Select a metric to analyze, apply filters, and switch chart types to uncover new insights.
-                </p>
+  const renderChart = () => {
+    switch (chartType) {
+      case 'pie':
+        return (
+          <PieChart>
+            <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={95}
+              label={{ fill: tickColor, fontSize: 10 }}>
+              {chartData.map((_entry, index) => (
+                <Cell key={index} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip content={<CustomChartTooltip total={total} />} />
+            <Legend wrapperStyle={{ color: tickColor }} />
+          </PieChart>
+        );
+
+      case 'line':
+        return (
+          <LineChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" stroke={tickColor} />
+            <YAxis stroke={tickColor} />
+            <Tooltip content={<CustomChartTooltip total={total} />} />
+            <Line type="monotone" dataKey="value" stroke="#61dca3" strokeWidth={2} />
+          </LineChart>
+        );
+
+      case 'area':
+        return (
+          <AreaChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" stroke={tickColor} />
+            <YAxis stroke={tickColor} />
+            <Tooltip content={<CustomChartTooltip total={total} />} />
+            <Area type="monotone" dataKey="value" stroke="#61dca3" fill="#61dca3" fillOpacity={0.3} />
+          </AreaChart>
+        );
+
+      case 'bar':
+      default:
+        return (
+          <BarChart layout="vertical" data={chartData}>
+            <XAxis type="number" stroke={tickColor} />
+            <YAxis dataKey="name" type="category" stroke={tickColor} />
+            <Tooltip content={<CustomChartTooltip total={total} />} />
+            <Bar dataKey="value">
+              {chartData.map((_entry, index) => (
+                <Cell key={index} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Bar>
+          </BarChart>
+        );
+    }
+  };
+
+  const inputClasses =
+    "w-full bg-input-light dark:bg-input-dark border border-border-light dark:border-border-dark rounded-md p-2 mt-1 focus:ring-2 focus:ring-primary";
+
+  return (
+    <AnimatedPage>
+
+      {/* ✅ HEADER + GLASS BOX SECTION */}
+      <div className="text-center mb-12">
+        <h1 className="text-4xl md:text-6xl font-bold text-text-primary-light dark:text-white">
+          Detailed Analysis Tool
+        </h1>
+
+        {/* ✅ Glass Info Box */}
+        <div className="text-center max-w-2xl mx-auto mt-6 p-8 bg-card-light/80 dark:bg-card-dark/80 backdrop-blur-xl border border-border-light dark:border-border-dark rounded-2xl">
+          <p className="text-text-secondary-light dark:text-text-secondary-dark leading-relaxed">
+            Your input is vital. This survey is <strong>100% anonymous</strong> and updates charts in real-time.
+            <br /><br />
+            Analyze live Supabase survey results.
+          </p>
+        </div>
+      </div>  {/* ✅ CLOSING DIV FIXED HERE */}
+
+      {/* ✅ Control Panel */}
+      <div className="bg-card-light/80 dark:bg-card-dark/80 p-6 rounded-xl mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label>Primary Dimension</label>
+            <select className={inputClasses} value={primaryDimension}
+              onChange={(e) => setPrimaryDimension(e.target.value)}>
+              {DIMENSIONS.map((d) => (
+                <option key={d.key} value={d.key}>{d.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label>Filter Field</label>
+            <select className={inputClasses} value={filterDimension}
+              onChange={(e) => { setFilterDimension(e.target.value); setFilterValue("none"); }}>
+              <option value="none">No Filter</option>
+              {DIMENSIONS.map((d) => (
+                <option key={d.key} value={d.key}>{d.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label>Filter Value</label>
+            <select className={inputClasses} value={filterValue}
+              disabled={filterDimension === "none"}
+              onChange={(e) => setFilterValue(e.target.value)}>
+              <option value="none">All</option>
+              {filterOptions.map((v) => (
+                <option key={v as string} value={v as string}>{v as string}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label>Chart Type</label>
+            <div className="flex gap-2 mt-2">
+              <button onClick={() => setChartType("bar")} className="p-2 rounded bg-primary"><BarChart3 /></button>
+              <button onClick={() => setChartType("pie")} className="p-2 rounded bg-primary"><PieIcon /></button>
+              <button onClick={() => setChartType("line")} className="p-2 rounded bg-primary"><LineIcon /></button>
+              <button onClick={() => setChartType("area")} className="p-2 rounded bg-primary"><AreaIcon /></button>
             </div>
-            
-            <div className="bg-card-light/80 dark:bg-card-dark/80 backdrop-blur-xl border border-border-light dark:border-border-dark rounded-2xl p-6 mb-6">
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Primary Dimension</label>
-                        <select value={primaryDimension} onChange={e => setPrimaryDimension(e.target.value as keyof ProcessedSurveyResponse)} className={inputClasses}>
-                            {DIMENSIONS.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
-                        </select>
-                    </div>
-                     <div>
-                        <label className="block text-sm font-medium mb-1">Filter By</label>
-                        <select value={filterDimension} onChange={e => { setFilterDimension(e.target.value); setFilterValue('none'); }} className={inputClasses}>
-                            <option value="none">No Filter</option>
-                            {DIMENSIONS.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Filter Value</label>
-                        <select value={filterValue} onChange={e => setFilterValue(e.target.value)} className={inputClasses} disabled={filterDimension === 'none'}>
-                            <option value="none">All</option>
-                            {filterOptions.map(opt => <option key={opt as string} value={opt as string}>{opt as string}</option>)}
-                        </select>
-                    </div>
-                     <div>
-                         <label className="block text-sm font-medium mb-1">Chart Type</label>
-                         <div className="flex items-center gap-2">
-                            <button onClick={() => setChartType('bar')} className={buttonClasses(chartType === 'bar')}><BarChart3 size={20} /></button>
-                            <button onClick={() => setChartType('pie')} className={buttonClasses(chartType === 'pie')}><PieIcon size={20} /></button>
-                            <button onClick={() => setChartType('line')} className={buttonClasses(chartType === 'line')}><LineIcon size={20} /></button>
-                            <button onClick={() => setChartType('area')} className={buttonClasses(chartType === 'area')}><AreaIcon size={20} /></button>
-                         </div>
-                     </div>
-                 </div>
-            </div>
-            
-            <div className="h-[500px] bg-card-light/80 dark:bg-card-dark/80 backdrop-blur-xl border border-border-light dark:border-border-dark rounded-2xl p-4">
-                <ResponsiveContainer width="100%" height="100%">
-                    {renderChart()}
-                </ResponsiveContainer>
-            </div>
-        </AnimatedPage>
-    );
+          </div>
+        </div>
+      </div>
+
+      {/* ✅ Chart Container */}
+      <div className="h-[500px] bg-card-light/80 dark:bg-card-dark/80 p-4 rounded-xl">
+        <ResponsiveContainer>
+          {renderChart()}
+        </ResponsiveContainer>
+      </div>
+
+    </AnimatedPage>
+  );
 };
 
 export default DetailedAnalysis;

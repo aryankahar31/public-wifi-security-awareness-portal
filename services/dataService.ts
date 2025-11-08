@@ -1,4 +1,3 @@
-import { RAW_DATA } from './surveyData';
 import type { RawSurveyResponse, SurveyResponse, ProcessedSurveyResponse, AnalysisData, ChartData } from '../types';
 
 /**
@@ -81,10 +80,13 @@ const processData = (data: SurveyResponse[]): ProcessedSurveyResponse[] => {
   }));
 };
 
-// This function is called once to load the initial dataset.
-export const getInitialDataSet = (): ProcessedSurveyResponse[] => {
-  const rawSurveyData = mapAndCleanData(RAW_DATA);
-  return processData(rawSurveyData);
+/**
+ * A pipeline function that takes raw data from the "database"
+ * and runs it through the full cleaning and processing pipeline.
+ */
+export const processAllRawData = (rawData: RawSurveyResponse[]): ProcessedSurveyResponse[] => {
+  const cleanedData = mapAndCleanData(rawData);
+  return processData(cleanedData);
 };
 
 

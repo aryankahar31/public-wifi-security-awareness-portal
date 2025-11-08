@@ -1,32 +1,46 @@
-import React, { createContext, useState, useContext, ReactNode } from 'react';
-import type { ProcessedSurveyResponse } from '../types';
-import { getInitialDataSet } from '../services/dataService';
+import { createContext, useContext, useEffect, useState } from "react";
+import { supabase } from "../supabase/client";  // ✅ FIXED IMPORT
 
-interface DataContextType {
-  surveyData: ProcessedSurveyResponse[];
-  addSurveyResponse: (response: ProcessedSurveyResponse) => void;
-}
+export const DataContext = createContext(null);
 
-const DataContext = createContext<DataContextType | undefined>(undefined);
+export const DataProvider = ({ children }) => {
+  const [surveyData, setSurveyData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [surveyData, setSurveyData] = useState<ProcessedSurveyResponse[]>(() => getInitialDataSet());
+  const fetchData = async () => {
+    const { data, error } = await supabase
+      .from("survey_responses")
+      .select("*")
+      .order("id", { ascending: true });
 
-  const addSurveyResponse = (response: ProcessedSurveyResponse) => {
-    setSurveyData(prevData => [...prevData, response]);
+    if (!error) setSurveyData(data || []);
+    setLoading(false);
   };
 
+  const addSurvey = async (response) => {
+    await supabase.from("survey_responses").insert(response);
+  };
+
+  useEffect(() => {
+    fetchData();
+
+    const channel = supabase
+      .channel("survey_updates")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "survey_responses" },
+        fetchData
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  }, []);
+
   return (
-    <DataContext.Provider value={{ surveyData, addSurveyResponse }}>
+    <DataContext.Provider value={{ surveyData, addSurvey, loading }}>
       {children}
     </DataContext.Provider>
   );
 };
 
-export const useData = () => {
-  const context = useContext(DataContext);
-  if (context === undefined) {
-    throw new Error('useData must be used within a DataProvider');
-  }
-  return context;
-};
+export const useData = () => useContext(DataContext);

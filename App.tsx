@@ -1,6 +1,7 @@
 import React from 'react';
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
+import { Analytics } from '@vercel/analytics/react';
 
 import Layout from './components/Layout';
 import Home from './pages/Home';
@@ -47,6 +48,7 @@ const App: React.FC = () => {
       <Layout>
         <AppRoutes />
       </Layout>
+      <Analytics />
     </HashRouter>
   );
 };
